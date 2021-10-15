@@ -1,0 +1,23 @@
+{
+  "name": "pwa-first",
+  "version": "1.0.0",
+  "description": "PWA using a simple Instagram clone.",
+  "main": "index.js",
+  "scripts": {
+    "start": "http-server -c-1",
+    "commit": "git cz"
+  },
+  "keywords": [
+    "pwa",
+    "progressive",
+    "web",
+    "app"
+  ],
+  "author": "Abhimanyu Chauhan",
+  "license": "ISC",
+  "devDependencies": {
+    "http-server": "^0.9.0",
+    "cz-conventional-changelog": "^3.3.0",
+    "git-cz": "^4.8.0"
+  }
+}
