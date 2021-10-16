@@ -59,3 +59,27 @@ A web manifest, with the correct fields filled in
 The web site to be served from a secure (HTTPS) domain
 An icon to represent the app on the device
 A service worker registered, to allow the app to work offline (this is required only by Chrome for Android currently)
+
+## Service Workers
+
+Service workers do not work on the same UI thread, rather on a seperate thread.
+They run in the background, decoupled from your core HTML. It is a share resource, not like a dedicated web worker.
+Lives on even after the session has ended, this makes it possible to run in the background.
+They can listen to (specific) events and execute certain operations
+
+### Events
+
+1. Fetch: Brower or Page related JS intitiates a Fetch(HTTP)
+2. Push Notifications: SW receive Web Push Notifications(from server)
+3. Notification Interaction: User interacts with displayed Notification
+4. Background Sync: SW receives Background Sync Event (g Internet Connection was restored)
+5. SW Lifecycle: SW phase changes
+
+#### SW Lifecycle
+
+html => app.js => resgister SW =>
+
+1. installation phase -> emmits "install" event
+2. Activation phase -> will only get active if no prior instance of sw is running -> emmits "active" event -> SW now controls all pages of scope
+3. Idle => as it is a background process, it idles untill events start coming in
+4. terminated => it is in sleep mode
