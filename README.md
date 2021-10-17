@@ -83,3 +83,14 @@ html => app.js => resgister SW =>
 2. Activation phase -> will only get active if no prior instance of sw is running -> emmits "active" event -> SW now controls all pages of scope
 3. Idle => as it is a background process, it idles untill events start coming in
 4. terminated => it is in sleep mode
+
+## Cache API
+
+The Cache interface provides a persistent storage mechanism for Request / Response object pairs that are cached in long lived memory. How long a Cache lives is browser dependent, but a single origin's scripts can typically rely on the presence of a previously populated Cache. Note that the Cache interface is exposed to windowed scopes as well as workers. You don't have to use it in conjunction with service workers, even though it is defined in the service worker spec.
+
+Cache Data can be retreived instead of sending Network Request
+
+### What needs to be cached?
+
+1. The App shell is important as it holds the static files like the Index.html, css files and some images
+   - why we can ignore caching promise and fetch in the cache => because older browsers will not upport sw, so no need add polyfills
