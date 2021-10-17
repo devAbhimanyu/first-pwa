@@ -11,6 +11,5 @@ self.addEventListener("activate", (e) => {
 
 // fetch is triggered by the web app
 self.addEventListener("fetch", (e) => {
-  console.log("fetch made", e);
   e.respondWith(fetch(e.request));
 });
