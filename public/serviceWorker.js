@@ -1,10 +1,12 @@
 //As SW has a more global scope having it in the public folder makes more sense
+const STATIC_ASSETS = "STATIC_ASSETS-V1";
+const DYNAMIC = "DYNAMIC-V1";
 // install is triggered by the browser
 self.addEventListener("install", (e) => {
   console.log("insalling sw", e);
   // using caches.open we can open a new cache
   e.waitUntil(
-    caches.open("STATIC_ASSETS").then((cache) => {
+    caches.open(STATIC_ASSETS).then((cache) => {
       console.log("sw precaching app shell");
       // to successfuly add to cache it should return a status 200
       // the key is a request obj not a string
@@ -30,9 +32,25 @@ self.addEventListener("install", (e) => {
     })
   );
 });
+
 // activate is triggered by the browser
 self.addEventListener("activate", (e) => {
-  console.log("activated sw", e);
+  console.log("activating sw", e);
+  // cleaning old caches
+  e.waitUntil(
+    caches.keys().then((keyList) => {
+      return Promise.all(
+        keyList.map((key) => {
+          // check if key is not the current ones being used
+          if (key !== STATIC_ASSETS && key !== DYNAMIC) {
+            console.log("cache removed", key);
+            // delete cache for keys not being used
+            return caches.delete(key);
+          }
+        })
+      );
+    })
+  );
   return self.clients.claim(); //makes sure that the sw are installed and activated properly
 });
 
@@ -46,7 +64,17 @@ self.addEventListener("fetch", (e) => {
         if (response) {
           return response;
         } else {
-          return fetch(e.request);
+          return fetch(e.request)
+            .then((res) =>
+              caches.open(DYNAMIC).then((cache) => {
+                // store the response clone and send the actual respose back
+                if (e.request.url.startsWith("http")) {
+                  cache.put(e.request, res.clone());
+                }
+                return res;
+              })
+            )
+            .catch((e) => {});
         }
       })
       .catch((e) => {
