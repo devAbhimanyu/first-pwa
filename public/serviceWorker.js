@@ -14,15 +14,3 @@ self.addEventListener("fetch", (e) => {
   console.log("fetch made", e);
   e.respondWith(fetch(e.request));
 });
-
-let deferredPrompt;
-// beforeinstallprompt is triggered by the web app
-self.addEventListener("beforeinstallprompt", (e) => {
-  e.preventDefault();
-  // Stash the event so it can be triggered later.
-  deferredPrompt = e;
-  // Update UI notify the user they can install the PWA
-  showInstallPromotion();
-  // Optionally, send analytics event that PWA install promo was shown.
-  console.log(`'beforeinstallprompt' event was fired.`);
-});
