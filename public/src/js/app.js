@@ -1,8 +1,18 @@
 var deferredPrompt;
+if (!window.Promise) {
+  window.Promise = Promise;
+}
+
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/serviceWorker.js").then(() => {
-    console.log("Service Worker registered");
-  });
+  navigator.serviceWorker
+    .register("/serviceWorker.js")
+    .then(() => {
+      console.log("Service Worker registered");
+    })
+    .catch((e) => {
+      console.log("an error occurred");
+      console.error(e);
+    });
 }
 
 /**
