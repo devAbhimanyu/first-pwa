@@ -1,6 +1,6 @@
 //As SW has a more global scope having it in the public folder makes more sense
 const STATIC_ASSETS = "STATIC_ASSETS-V1";
-const DYNAMIC = "DYNAMIC-V1";
+const DYNAMIC = "DYNAMIC-V0";
 // install is triggered by the browser
 self.addEventListener("install", (e) => {
   console.log("insalling sw", e);
@@ -69,7 +69,7 @@ self.addEventListener("fetch", (e) => {
               caches.open(DYNAMIC).then((cache) => {
                 // store the response clone and send the actual respose back
                 if (e.request.url.startsWith("http")) {
-                  cache.put(e.request, res.clone());
+                  // cache.put(e.request, res.clone());
                 }
                 return res;
               })
