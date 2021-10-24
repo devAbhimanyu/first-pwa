@@ -56,36 +56,111 @@ self.addEventListener("activate", (e) => {
   return self.clients.claim(); //makes sure that the sw are installed and activated properly
 });
 
-// fetch is triggered by the web app
-self.addEventListener("fetch", (e) => {
-  // e.respondWith(fetch(e.request));
-  e.respondWith(
-    caches
-      .match(e.request)
-      .then((response) => {
+/** cache then network */
+self.addEventListener("fetch", function (event) {
+  var url = "https://httpbin.org/get";
+  //eg check if fetch from api then use update cache
+  if (event.request.url.indexOf(url) > -1) {
+    event.respondWith(
+      caches.open(DYNAMIC).then(function (cache) {
+        return fetch(event.request).then(function (res) {
+          cache.put(event.request, res.clone());
+          return res;
+        });
+      })
+    );
+  } else {
+    // if other request like assets, use cache
+    event.respondWith(
+      caches.match(event.request).then(function (response) {
         if (response) {
           return response;
         } else {
-          return fetch(e.request)
-            .then((res) =>
-              caches.open(DYNAMIC).then((cache) => {
-                // store the response clone and send the actual respose back
-                if (e.request.url.startsWith("http")) {
-                  cache.put(e.request, res.clone());
-                }
+          return fetch(event.request)
+            .then(function (res) {
+              return caches.open(DYNAMIC).then(function (cache) {
+                cache.put(event.request.url, res.clone());
                 return res;
-              })
-            )
-            .catch((err) => {
-              console.log(err);
-              return caches.open(STATIC_ASSETS).then((cache) => {
-                return cache.match(FALLBACK_PAGE);
+              });
+            })
+            .catch(function (err) {
+              return caches.open(STATIC_ASSETS).then(function (cache) {
+                return cache.match("/offline.html");
               });
             });
         }
       })
-      .catch((e) => {
-        console.log(e);
-      })
-  );
+    );
+  }
 });
+
+/**
+ * normal strategy
+ */
+// fetch is triggered by the web app
+// self.addEventListener("fetch", (e) => {
+//   e.respondWith(
+//     caches
+//       .match(e.request)
+//       .then((response) => {
+//         if (response) {
+//           return response;
+//         } else {
+//           return fetch(e.request)
+//             .then((res) =>
+//               caches.open(DYNAMIC).then((cache) => {
+//                 // store the response clone and send the actual respose back
+//                 if (e.request.url.startsWith("http")) {
+//                   cache.put(e.request, res.clone());
+//                 }
+//                 return res;
+//               })
+//             )
+//             .catch((err) => {
+//               console.log(err);
+//               return caches.open(STATIC_ASSETS).then((cache) => {
+//                 return cache.match(FALLBACK_PAGE);
+//               });
+//             });
+//         }
+//       })
+//       .catch((e) => {
+//         console.log(e);
+//       })
+//   );
+// });
+
+/** cache only strategy */
+// self.addEventListener("fetch", (e) => {
+//   e.respondWith(caches.match(e.request));
+// });
+
+/** network only strategy */
+// self.addEventListener("fetch", (e) => {
+//   e.respondWith(fetch(e.request));
+// });
+
+/**
+ * Network with cache fallback
+ * again not the best as it needs the api to fail
+ */
+// self.addEventListener("fetch", (e) => {
+//   e.respondWith(
+//     // try to get resonse from network
+//     fetch(e.request)
+//       .then((res) => {
+//         return caches.open(DYNAMIC).then((cache) => {
+//           // store the response clone and send the actual response back
+//           if (e.request.url.startsWith("http")) {
+//             cache.put(e.request, res.clone());
+//           }
+//           return res;
+//         });
+//       })
+//       .catch((err) => {
+//         // if fetch fails we check the cache
+//         console.error(err);
+//         return caches.match(e.request);
+//       })
+//   );
+// });
