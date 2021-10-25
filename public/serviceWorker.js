@@ -2,6 +2,24 @@
 const STATIC_ASSETS = "STATIC_ASSETS-V12";
 const DYNAMIC = "DYNAMIC-V1";
 const FALLBACK_PAGE = "/fallback.html";
+
+const STATIC_FILES = [
+  "/",
+  "/index.html",
+  "/fallback.html",
+  "/src/js/app.js",
+  "/src/js/feed.js",
+  "/src/js/promise.js",
+  "/src/js/fetch.js",
+  "/src/js/material.min.js",
+  "/src/css/app.css",
+  "/src/css/feed.css",
+  "/src/images/main-image.jpg",
+  "https://fonts.googleapis.com/css?family=Roboto:400,700",
+  "https://fonts.googleapis.com/icon?family=Material+Icons",
+  "https://cdnjs.cloudflare.com/ajax/libs/material-design-lite/1.3.0/material.indigo-pink.min.css",
+];
+
 // install is triggered by the browser
 self.addEventListener("install", (e) => {
   console.log("insalling sw", e);
@@ -15,22 +33,7 @@ self.addEventListener("install", (e) => {
       // cache.add("/index.html");
       // cache.add("/src/js/app.js");
       // cache.addAll uses a string[, which holds all the request
-      cache.addAll([
-        "/",
-        "/index.html",
-        "/fallback.html",
-        "/src/js/app.js",
-        "/src/js/feed.js",
-        "/src/js/promise.js",
-        "/src/js/fetch.js",
-        "/src/js/material.min.js",
-        "/src/css/app.css",
-        "/src/css/feed.css",
-        "/src/images/main-image.jpg",
-        "https://fonts.googleapis.com/css?family=Roboto:400,700",
-        "https://fonts.googleapis.com/icon?family=Material+Icons",
-        "https://cdnjs.cloudflare.com/ajax/libs/material-design-lite/1.3.0/material.indigo-pink.min.css",
-      ]);
+      cache.addAll(STATIC_FILES);
     })
   );
 });
@@ -69,8 +72,15 @@ self.addEventListener("fetch", function (event) {
         });
       })
     );
+  } else if (
+    new RegExp("\\b" + STATIC_FILES.join("\\b|\\b") + "\\b").test(
+      event.request.url
+    )
+  ) {
+    // if request if for static file use cache only
+    event.respondWith(caches.match(event.request));
   } else {
-    // if other request like assets, use cache
+    // if other request use cache
     event.respondWith(
       caches.match(event.request).then(function (response) {
         if (response) {
@@ -85,7 +95,8 @@ self.addEventListener("fetch", function (event) {
             })
             .catch(function (err) {
               return caches.open(STATIC_ASSETS).then(function (cache) {
-                return cache.match("/offline.html");
+                if (event.request.url.indexOf("/help") > -1)
+                  return cache.match(FALLBACK_PAGE);
               });
             });
         }
