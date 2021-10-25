@@ -20,6 +20,19 @@ const STATIC_FILES = [
   "https://cdnjs.cloudflare.com/ajax/libs/material-design-lite/1.3.0/material.indigo-pink.min.css",
 ];
 
+/**
+ * trim cache object to store particular elements
+ */
+function trimCache(cacheName, maxItems) {
+  caches.open(cacheName).then(function (cache) {
+    return cache.keys().then(function (keys) {
+      if (keys.length > maxItems) {
+        cache.delete(keys[0]).then(trimCache(cacheName, maxItems));
+      }
+    });
+  });
+}
+
 // install is triggered by the browser
 self.addEventListener("install", (e) => {
   console.log("insalling sw", e);
@@ -59,6 +72,22 @@ self.addEventListener("activate", (e) => {
   return self.clients.claim(); //makes sure that the sw are installed and activated properly
 });
 
+// function isInArray(url, array = []) {
+//   const val = array.find((val) => val === url);
+//   return val ? true : false;
+// }
+function isInArray(string, array) {
+  var cachePath;
+  if (string.indexOf(self.origin) === 0) {
+    // request targets domain where we serve the page from (i.e. NOT a CDN)
+    console.log("matched ", string);
+    cachePath = string.substring(self.origin.length); // take the part of the URL AFTER the domain (e.g. after localhost:8080)
+  } else {
+    cachePath = string; // store the full request (for CDNs)
+  }
+  return array.indexOf(cachePath) > -1;
+}
+
 /** cache then network */
 self.addEventListener("fetch", function (event) {
   var url = "https://httpbin.org/get";
@@ -67,16 +96,15 @@ self.addEventListener("fetch", function (event) {
     event.respondWith(
       caches.open(DYNAMIC).then(function (cache) {
         return fetch(event.request).then(function (res) {
-          cache.put(event.request, res.clone());
+          if (event.request.url.startsWith("http")) {
+            trimCache(DYNAMIC, 3);
+            cache.put(event.request, res.clone());
+          }
           return res;
         });
       })
     );
-  } else if (
-    new RegExp("\\b" + STATIC_FILES.join("\\b|\\b") + "\\b").test(
-      event.request.url
-    )
-  ) {
+  } else if (isInArray(event.request.url, STATIC_FILES)) {
     // if request if for static file use cache only
     event.respondWith(caches.match(event.request));
   } else {
@@ -89,13 +117,16 @@ self.addEventListener("fetch", function (event) {
           return fetch(event.request)
             .then(function (res) {
               return caches.open(DYNAMIC).then(function (cache) {
-                cache.put(event.request.url, res.clone());
+                if (event.request.url.startsWith("http")) {
+                  trimCache(DYNAMIC, 3);
+                  cache.put(event.request, res.clone());
+                }
                 return res;
               });
             })
             .catch(function (err) {
               return caches.open(STATIC_ASSETS).then(function (cache) {
-                if (event.request.url.indexOf("/help") > -1)
+                if (event.request.headers.get("accept").includes("text/html"))
                   return cache.match(FALLBACK_PAGE);
               });
             });
