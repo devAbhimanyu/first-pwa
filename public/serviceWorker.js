@@ -1,6 +1,38 @@
 //As SW has a more global scope having it in the public folder makes more sense
-const STATIC_ASSETS = "STATIC_ASSETS-V1";
+const STATIC_ASSETS = "STATIC_ASSETS-V12";
 const DYNAMIC = "DYNAMIC-V1";
+const FALLBACK_PAGE = "/fallback.html";
+
+const STATIC_FILES = [
+  "/",
+  "/index.html",
+  "/fallback.html",
+  "/src/js/app.js",
+  "/src/js/feed.js",
+  "/src/js/promise.js",
+  "/src/js/fetch.js",
+  "/src/js/material.min.js",
+  "/src/css/app.css",
+  "/src/css/feed.css",
+  "/src/images/main-image.jpg",
+  "https://fonts.googleapis.com/css?family=Roboto:400,700",
+  "https://fonts.googleapis.com/icon?family=Material+Icons",
+  "https://cdnjs.cloudflare.com/ajax/libs/material-design-lite/1.3.0/material.indigo-pink.min.css",
+];
+
+/**
+ * trim cache object to store particular elements
+ */
+function trimCache(cacheName, maxItems) {
+  caches.open(cacheName).then(function (cache) {
+    return cache.keys().then(function (keys) {
+      if (keys.length > maxItems) {
+        cache.delete(keys[0]).then(trimCache(cacheName, maxItems));
+      }
+    });
+  });
+}
+
 // install is triggered by the browser
 self.addEventListener("install", (e) => {
   console.log("insalling sw", e);
@@ -14,21 +46,7 @@ self.addEventListener("install", (e) => {
       // cache.add("/index.html");
       // cache.add("/src/js/app.js");
       // cache.addAll uses a string[, which holds all the request
-      cache.addAll([
-        "/",
-        "/index.html",
-        "/src/js/app.js",
-        "/src/js/feed.js",
-        "/src/js/promise.js",
-        "/src/js/fetch.js",
-        "/src/js/material.min.js",
-        "/src/css/app.css",
-        "/src/css/feed.css",
-        "/src/images/main-image.jpg",
-        "https://fonts.googleapis.com/css?family=Roboto:400,700",
-        "https://fonts.googleapis.com/icon?family=Material+Icons",
-        "https://cdnjs.cloudflare.com/ajax/libs/material-design-lite/1.3.0/material.indigo-pink.min.css",
-      ]);
+      cache.addAll(STATIC_FILES);
     })
   );
 });
@@ -54,31 +72,137 @@ self.addEventListener("activate", (e) => {
   return self.clients.claim(); //makes sure that the sw are installed and activated properly
 });
 
-// fetch is triggered by the web app
-self.addEventListener("fetch", (e) => {
-  // e.respondWith(fetch(e.request));
-  e.respondWith(
-    caches
-      .match(e.request)
-      .then((response) => {
+// function isInArray(url, array = []) {
+//   const val = array.find((val) => val === url);
+//   return val ? true : false;
+// }
+function isInArray(string, array) {
+  var cachePath;
+  if (string.indexOf(self.origin) === 0) {
+    // request targets domain where we serve the page from (i.e. NOT a CDN)
+    console.log("matched ", string);
+    cachePath = string.substring(self.origin.length); // take the part of the URL AFTER the domain (e.g. after localhost:8080)
+  } else {
+    cachePath = string; // store the full request (for CDNs)
+  }
+  return array.indexOf(cachePath) > -1;
+}
+
+/** cache then network */
+self.addEventListener("fetch", function (event) {
+  var url = "https://httpbin.org/get";
+  //eg check if fetch from api then use update cache
+  if (event.request.url.indexOf(url) > -1) {
+    event.respondWith(
+      caches.open(DYNAMIC).then(function (cache) {
+        return fetch(event.request).then(function (res) {
+          if (event.request.url.startsWith("http")) {
+            trimCache(DYNAMIC, 3);
+            cache.put(event.request, res.clone());
+          }
+          return res;
+        });
+      })
+    );
+  } else if (isInArray(event.request.url, STATIC_FILES)) {
+    // if request if for static file use cache only
+    event.respondWith(caches.match(event.request));
+  } else {
+    // if other request use cache
+    event.respondWith(
+      caches.match(event.request).then(function (response) {
         if (response) {
           return response;
         } else {
-          return fetch(e.request)
-            .then((res) =>
-              caches.open(DYNAMIC).then((cache) => {
-                // store the response clone and send the actual respose back
-                if (e.request.url.startsWith("http")) {
-                  cache.put(e.request, res.clone());
+          return fetch(event.request)
+            .then(function (res) {
+              return caches.open(DYNAMIC).then(function (cache) {
+                if (event.request.url.startsWith("http")) {
+                  trimCache(DYNAMIC, 3);
+                  cache.put(event.request, res.clone());
                 }
                 return res;
-              })
-            )
-            .catch((e) => {});
+              });
+            })
+            .catch(function (err) {
+              return caches.open(STATIC_ASSETS).then(function (cache) {
+                if (event.request.headers.get("accept").includes("text/html"))
+                  return cache.match(FALLBACK_PAGE);
+              });
+            });
         }
       })
-      .catch((e) => {
-        console.log(e);
-      })
-  );
+    );
+  }
 });
+
+/**
+ * normal strategy
+ */
+// fetch is triggered by the web app
+// self.addEventListener("fetch", (e) => {
+//   e.respondWith(
+//     caches
+//       .match(e.request)
+//       .then((response) => {
+//         if (response) {
+//           return response;
+//         } else {
+//           return fetch(e.request)
+//             .then((res) =>
+//               caches.open(DYNAMIC).then((cache) => {
+//                 // store the response clone and send the actual respose back
+//                 if (e.request.url.startsWith("http")) {
+//                   cache.put(e.request, res.clone());
+//                 }
+//                 return res;
+//               })
+//             )
+//             .catch((err) => {
+//               console.log(err);
+//               return caches.open(STATIC_ASSETS).then((cache) => {
+//                 return cache.match(FALLBACK_PAGE);
+//               });
+//             });
+//         }
+//       })
+//       .catch((e) => {
+//         console.log(e);
+//       })
+//   );
+// });
+
+/** cache only strategy */
+// self.addEventListener("fetch", (e) => {
+//   e.respondWith(caches.match(e.request));
+// });
+
+/** network only strategy */
+// self.addEventListener("fetch", (e) => {
+//   e.respondWith(fetch(e.request));
+// });
+
+/**
+ * Network with cache fallback
+ * again not the best as it needs the api to fail
+ */
+// self.addEventListener("fetch", (e) => {
+//   e.respondWith(
+//     // try to get resonse from network
+//     fetch(e.request)
+//       .then((res) => {
+//         return caches.open(DYNAMIC).then((cache) => {
+//           // store the response clone and send the actual response back
+//           if (e.request.url.startsWith("http")) {
+//             cache.put(e.request, res.clone());
+//           }
+//           return res;
+//         });
+//       })
+//       .catch((err) => {
+//         // if fetch fails we check the cache
+//         console.error(err);
+//         return caches.match(e.request);
+//       })
+//   );
+// });
