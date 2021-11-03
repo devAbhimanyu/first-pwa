@@ -1,6 +1,9 @@
+importScripts("/src/js/idb.js");
+importScripts("/src/js/utils.js");
+
 //As SW has a more global scope having it in the public folder makes more sense
-const STATIC_ASSETS = "STATIC_ASSETS-V12";
-const DYNAMIC = "DYNAMIC-V1";
+const STATIC_ASSETS = "STATIC_ASSETS-V2";
+const DYNAMIC = "DYNAMIC-V2";
 const FALLBACK_PAGE = "/fallback.html";
 
 const STATIC_FILES = [
@@ -11,6 +14,8 @@ const STATIC_FILES = [
   "/src/js/feed.js",
   "/src/js/promise.js",
   "/src/js/fetch.js",
+  "/src/js/idb.js",
+  "/src/js/utils.js",
   "/src/js/material.min.js",
   "/src/css/app.css",
   "/src/css/feed.css",
@@ -90,18 +95,24 @@ function isInArray(string, array) {
 
 /** cache then network */
 self.addEventListener("fetch", function (event) {
-  var url = "https://httpbin.org/get";
+  var url = "https://pwa-test-app-6d2b4-default-rtdb.firebaseio.com/posts";
   //eg check if fetch from api then use update cache
   if (event.request.url.indexOf(url) > -1) {
     event.respondWith(
-      caches.open(DYNAMIC).then(function (cache) {
-        return fetch(event.request).then(function (res) {
-          if (event.request.url.startsWith("http")) {
-            trimCache(DYNAMIC, 3);
-            cache.put(event.request, res.clone());
-          }
-          return res;
-        });
+      fetch(event.request).then((res) => {
+        const clonedRes = res.clone();
+        clearStoreData("posts")
+          .then(() => {
+            console.log("cloning");
+            return clonedRes.json();
+          })
+          .then((data) => {
+            console.log("loop area");
+            for (let key in data) {
+              writeToDb("posts", data[key]);
+            }
+          });
+        return res;
       })
     );
   } else if (isInArray(event.request.url, STATIC_FILES)) {
@@ -118,7 +129,7 @@ self.addEventListener("fetch", function (event) {
             .then(function (res) {
               return caches.open(DYNAMIC).then(function (cache) {
                 if (event.request.url.startsWith("http")) {
-                  trimCache(DYNAMIC, 3);
+                  // trimCache(DYNAMIC, 3);
                   cache.put(event.request, res.clone());
                 }
                 return res;
@@ -135,74 +146,3 @@ self.addEventListener("fetch", function (event) {
     );
   }
 });
-
-/**
- * normal strategy
- */
-// fetch is triggered by the web app
-// self.addEventListener("fetch", (e) => {
-//   e.respondWith(
-//     caches
-//       .match(e.request)
-//       .then((response) => {
-//         if (response) {
-//           return response;
-//         } else {
-//           return fetch(e.request)
-//             .then((res) =>
-//               caches.open(DYNAMIC).then((cache) => {
-//                 // store the response clone and send the actual respose back
-//                 if (e.request.url.startsWith("http")) {
-//                   cache.put(e.request, res.clone());
-//                 }
-//                 return res;
-//               })
-//             )
-//             .catch((err) => {
-//               console.log(err);
-//               return caches.open(STATIC_ASSETS).then((cache) => {
-//                 return cache.match(FALLBACK_PAGE);
-//               });
-//             });
-//         }
-//       })
-//       .catch((e) => {
-//         console.log(e);
-//       })
-//   );
-// });
-
-/** cache only strategy */
-// self.addEventListener("fetch", (e) => {
-//   e.respondWith(caches.match(e.request));
-// });
-
-/** network only strategy */
-// self.addEventListener("fetch", (e) => {
-//   e.respondWith(fetch(e.request));
-// });
-
-/**
- * Network with cache fallback
- * again not the best as it needs the api to fail
- */
-// self.addEventListener("fetch", (e) => {
-//   e.respondWith(
-//     // try to get resonse from network
-//     fetch(e.request)
-//       .then((res) => {
-//         return caches.open(DYNAMIC).then((cache) => {
-//           // store the response clone and send the actual response back
-//           if (e.request.url.startsWith("http")) {
-//             cache.put(e.request, res.clone());
-//           }
-//           return res;
-//         });
-//       })
-//       .catch((err) => {
-//         // if fetch fails we check the cache
-//         console.error(err);
-//         return caches.match(e.request);
-//       })
-//   );
-// });
