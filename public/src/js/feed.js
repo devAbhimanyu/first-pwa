@@ -4,6 +4,9 @@ var closeCreatePostModalButton = document.querySelector(
   "#close-create-post-modal-btn"
 );
 var sharedMomentsArea = document.querySelector("#shared-moments");
+var form = document.querySelector("form");
+var titleInput = document.querySelector("#title");
+var locationInput = document.querySelector("#location");
 
 function openCreatePostModal() {
   // createPostArea.style.display = 'block';
@@ -96,8 +99,22 @@ function updateUI(data = []) {
   });
 }
 
-var url = "https://pwa-test-app-6d2b4-default-rtdb.firebaseio.com/posts.json";
+var url = "http://localhost:3000/posts";
 var networkDataReceived = false;
+
+function sendData(payload) {
+  fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload),
+  }).then(function (res) {
+    console.log("Sent data", res);
+    updateUI();
+  });
+}
 
 fetch(url)
   .then(function (res) {
@@ -106,11 +123,7 @@ fetch(url)
   .then(function (data) {
     networkDataReceived = true;
     console.log("fetch from network", data);
-    const dataArr = [];
-    for (let key in data) {
-      dataArr.push(data[key]);
-    }
-    updateUI(dataArr);
+    updateUI(data);
   });
 
 if ("indexedDB" in window) {
@@ -121,3 +134,38 @@ if ("indexedDB" in window) {
     }
   });
 }
+
+form.addEventListener("submit", () => {
+  event.preventDefault();
+  if (titleInput.value.trim() === "" || locationInput.value.trim() === "") {
+    alert("Please enter valid input");
+    return;
+  }
+  closeCreatePostModal();
+  var payload = {
+    id: new Date().toISOString(),
+    caption: titleInput.value,
+    location: locationInput.value,
+    image:
+      "https://firebasestorage.googleapis.com/v0/b/pwa-test-app-6d2b4.appspot.com/o/sf-boat.jpg?alt=media&token=880c2cf8-b845-46a4-9284-685e21a69b97",
+  };
+  if ("serviceWorker" in navigator && "SyncManager" in window) {
+    navigator.serviceWorker.ready.then(function (sw) {
+      writeToDb("sync-posts", payload)
+        .then(function () {
+          //this creates an event tag, which can be accessed in the
+          return sw.sync.register("sync-new-posts");
+        })
+        .then(function () {
+          var snackbarContainer = document.querySelector("#confirmation-toast");
+          var data = { message: "Your Post was saved for syncing!" };
+          snackbarContainer.MaterialSnackbar.showSnackbar(data);
+        })
+        .catch(function (err) {
+          console.log(err);
+        });
+    });
+  } else {
+    sendData(payload);
+  }
+});

@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "start": "http-server -c-1",
-    "commit": "git cz"
+    "commit": "git cz",
+    "jsonServ": "json-server --watch db.json",
+    "dev": "concurrently \"yarn run jsonServ\" \"yarn run start\" "
   },
   "keywords": [
     "pwa",
@@ -16,8 +18,10 @@
   "author": "Abhimanyu Chauhan",
   "license": "ISC",
   "devDependencies": {
-    "http-server": "^0.9.0",
+    "concurrently": "^6.3.0",
     "cz-conventional-changelog": "^3.3.0",
-    "git-cz": "^4.8.0"
+    "git-cz": "^4.8.0",
+    "http-server": "^0.9.0",
+    "json-server": "^0.17.0"
   }
 }
