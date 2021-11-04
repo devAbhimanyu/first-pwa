@@ -2,7 +2,7 @@ importScripts("/src/js/idb.js");
 importScripts("/src/js/utils.js");
 
 //As SW has a more global scope having it in the public folder makes more sense
-const STATIC_ASSETS = "STATIC_ASSETS-V2";
+const STATIC_ASSETS = "STATIC_ASSETS-V8";
 const DYNAMIC = "DYNAMIC-V2";
 const FALLBACK_PAGE = "/fallback.html";
 
@@ -95,7 +95,7 @@ function isInArray(string, array) {
 
 /** cache then network */
 self.addEventListener("fetch", function (event) {
-  var url = "https://pwa-test-app-6d2b4-default-rtdb.firebaseio.com/posts";
+  var url = "http://localhost:3000/posts";
   //eg check if fetch from api then use update cache
   if (event.request.url.indexOf(url) > -1) {
     event.respondWith(
@@ -106,10 +106,14 @@ self.addEventListener("fetch", function (event) {
             console.log("cloning");
             return clonedRes.json();
           })
-          .then((data) => {
+          .then((data = []) => {
             console.log("loop area");
-            for (let key in data) {
-              writeToDb("posts", data[key]);
+            if (Array.isArray(data)) {
+              data.forEach((d) => {
+                writeToDb("posts", d);
+              });
+            } else {
+              writeToDb("posts", data);
             }
           });
         return res;
@@ -140,6 +144,50 @@ self.addEventListener("fetch", function (event) {
                 if (event.request.headers.get("accept").includes("text/html"))
                   return cache.match(FALLBACK_PAGE);
               });
+            });
+        }
+      })
+    );
+  }
+});
+
+/**
+ * background sync, listens to the sync event
+ */
+self.addEventListener("sync", function (event) {
+  console.log("[Service Worker] Background syncing", event);
+  if (event.tag === "sync-new-posts") {
+    const url = "http://localhost:3000/posts";
+    console.log("[Service Worker] Syncing new Posts");
+    event.waitUntil(
+      readFromDb("sync-posts").then(function (data) {
+        // debugger;
+        for (var dt of data) {
+          const payload = {
+            id: dt.id,
+            caption: dt.caption,
+            location: dt.location,
+            image: dt.image,
+          };
+          fetch(url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify(payload),
+          })
+            .then(function (res) {
+              // debugger;
+              console.log("Sent data", res);
+              if (res.ok) {
+                res.json().then(function (resData) {
+                  deleteItemFromStore("sync-posts", resData.id);
+                });
+              }
+            })
+            .catch(function (err) {
+              console.log("Error while sending data", err);
             });
         }
       })

@@ -1,5 +1,6 @@
 const dbPromise = idb.open("post-store", 1, (db) => {
   db.createObjectStore("posts", { keyPath: "id" });
+  db.createObjectStore("sync-posts", { keyPath: "id" });
 });
 
 /**
